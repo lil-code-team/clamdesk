@@ -63,16 +63,13 @@ void help(void);
 static void write_json_report_history(time_t date_start, time_t date_end, int duration_s, int duration_us)
 {
     char report_dir[1024];
-    char report_file[1100];
+    char report_file[1105];
     char date_str[16]; /* DD-MM-yyyy\0 */
     char start_buf[26];
     char end_buf[26];
     struct tm tmp;
     FILE *fp;
-    long pos;
-    int c;
     double duration_sec;
-    char entry[2048];
 
 #ifdef _WIN32
     if (0 != localtime_s(&tmp, &date_start)) {
@@ -121,67 +118,40 @@ static void write_json_report_history(time_t date_start, time_t date_end, int du
     }
 #endif
 
-    snprintf(report_file, sizeof(report_file), "%s/%s-reports.json", report_dir, date_str);
+    /* Each day gets its own .jsonl file; each scan is one line (JSON Lines format) */
+    snprintf(report_file, sizeof(report_file), "%s/%s-reports.jsonl", report_dir, date_str);
 
-    snprintf(entry, sizeof(entry),
-             "  {\n"
-             "    \"scan_date\": \"%s\",\n"
-             "    \"start_time\": \"%s\",\n"
-             "    \"end_time\": \"%s\",\n"
-             "    \"duration_seconds\": %.3f,\n"
-             "    \"engine_version\": \"%s\",\n"
-             "    \"known_viruses\": %u,\n"
-             "    \"scanned_directories\": %u,\n"
-             "    \"scanned_files\": %u,\n"
-             "    \"infected_files\": %u,\n"
-             "    \"errors\": %u,\n"
-             "    \"data_scanned_bytes\": %" PRIu64 ",\n"
-             "    \"data_read_bytes\": %" PRIu64 "\n"
-             "  }",
-             date_str, start_buf, end_buf,
-             duration_sec,
-             get_version(),
-             info.sigs,
-             info.dirs,
-             info.files,
-             info.ifiles,
-             info.errors,
-             info.bytes_scanned,
-             info.bytes_read);
-
-    /* Open existing file for read+write, or create a new one.
-     * Note: concurrent writes from multiple clamscan processes on the same day
-     * may corrupt the file. This is considered an acceptable limitation for a
-     * scan history feature typically used in non-concurrent scenarios. */
-    fp = fopen(report_file, "r+");
+    /* Open in append mode — each call adds exactly one JSON object on a new line */
+    fp = fopen(report_file, "a");
     if (fp == NULL) {
-        fp = fopen(report_file, "w");
-        if (fp == NULL) {
-            logg(LOGG_WARNING, "json-report-history: Failed to open '%s' for writing: %s\n", report_file, strerror(errno));
-            return;
-        }
-        fprintf(fp, "[\n%s\n]\n", entry);
-    } else {
-        /* Seek backward from the end to find the closing ']' of the array */
-        fseek(fp, 0, SEEK_END);
-        pos = ftell(fp);
-        c   = 0;
-        while (pos > 0) {
-            pos--;
-            fseek(fp, pos, SEEK_SET);
-            c = fgetc(fp);
-            if (c == ']') {
-                fseek(fp, pos, SEEK_SET);
-                break;
-            }
-        }
-        if (c == ']') {
-            /* Append new entry before the closing ']' */
-            fprintf(fp, ",\n%s\n]\n", entry);
-        } else {
-            logg(LOGG_WARNING, "json-report-history: '%s' appears malformed; skipping append.\n", report_file);
-        }
+        logg(LOGG_WARNING, "json-report-history: Failed to open '%s' for appending: %s\n", report_file, strerror(errno));
+        return;
     }
+
+    fprintf(fp,
+            "{\"scan_date\":\"%s\","
+            "\"start_time\":\"%s\","
+            "\"end_time\":\"%s\","
+            "\"duration_seconds\":%.3f,"
+            "\"engine_version\":\"%s\","
+            "\"known_viruses\":%u,"
+            "\"scanned_directories\":%u,"
+            "\"scanned_files\":%u,"
+            "\"infected_files\":%u,"
+            "\"errors\":%u,"
+            "\"data_scanned_bytes\":%" PRIu64 ","
+            "\"data_read_bytes\":%" PRIu64 "}\n",
+            date_str, start_buf, end_buf,
+            duration_sec,
+            get_version(),
+            info.sigs,
+            info.dirs,
+            info.files,
+            info.ifiles,
+            info.errors,
+            info.bytes_scanned,
+            info.bytes_read);
+
     fclose(fp);
 
     logg(LOGG_INFO, "JSON history report saved: %s\n", report_file);
@@ -414,7 +384,7 @@ void help(void)
     mprintf(LOGG_INFO, "    --json-store-pdf-uris[=yes(*)/no]    Store pdf URIs in metadata.\n");
     mprintf(LOGG_INFO, "                                         URIs will be written to the metadata.json file in an array called 'URIs'.\n");
     mprintf(LOGG_INFO, "    --json-store-extra-hashes[=yes(*)/no] Store md5 and sha1 in addition to sha2-256 in metadata.\n");
-    mprintf(LOGG_INFO, "    --json-report-history[=yes/no(*)]    Save a JSON summary of each scan to history/reports/DD-MM-yyyy-reports.json.\n");
+    mprintf(LOGG_INFO, "    --json-report-history[=yes/no(*)]    Save a JSON Lines summary of each scan to history/reports/DD-MM-yyyy-reports.jsonl.\n");
     mprintf(LOGG_INFO, "                                         Multiple scans on the same day are appended to the same file.\n");
     mprintf(LOGG_INFO, "    --database=FILE/DIR   -d FILE/DIR    Load virus database from FILE or load all supported db files from DIR.\n");
     mprintf(LOGG_INFO, "    --official-db-only[=yes/no(*)]       Only load official signatures.\n");
