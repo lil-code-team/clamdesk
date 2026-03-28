@@ -358,6 +358,8 @@ set(LIBCLAMAV_SOURCES
     phish_domaincheck_db.c          phish_domaincheck_db.h
     phish_allow_list.c              phish_allow_list.h
     phishcheck.c                    phishcheck.h
+    # network firewall & threat protection
+    network_firewall.c              network_firewall.h
     regex_list.c                    regex_list.h
     regex_suffix.c                  regex_suffix.h
     # sis

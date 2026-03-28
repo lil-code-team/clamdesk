@@ -466,6 +466,53 @@ const struct clam_option __clam_options[] = {
 
     {"AlertPartitionIntersection", "alert-partition-intersection", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Alert on raw DMG image files containing partition intersections.", "yes"},
 
+    /* Network Firewall & Threat Protection */
+    {"NetworkFirewall", "network-firewall", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Enable the advanced network firewall and threat protection module.\nWhen enabled, ClamAV will perform network-level analysis including\nport scan detection, DDoS/brute-force protection, IP reputation\nchecks, geolocation blocking, URL homograph detection, protocol\nanomaly analysis, and C2 communication detection.", "no"},
+
+    {"AllowPortScanning", "allow-port-scanning", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 1, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Allow port scanning activity. When set to 'no', ClamAV will detect\nand alert on rapid multi-port connection patterns (Nmap, Masscan, etc.).", "yes"},
+
+    {"PortScanThreshold", "port-scan-threshold", 0, CLOPT_TYPE_NUMBER, MATCH_NUMBER, 10, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Number of distinct destination ports contacted within the observation\nwindow that triggers a port-scan alert.", "10"},
+
+    {"PortScanTimeout", "port-scan-timeout", 0, CLOPT_TYPE_NUMBER, MATCH_NUMBER, 300, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Observation window in seconds for port-scan detection.", "300"},
+
+    {"BlockScannedPorts", "block-scanned-ports", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Automatically block source IPs detected as performing a port scan.", "no"},
+
+    {"MaxConnectionsPerIP", "max-connections-per-ip", 0, CLOPT_TYPE_NUMBER, MATCH_NUMBER, 50, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Maximum number of simultaneous connections allowed from a single IP\nbefore a DDoS alert is triggered.", "50"},
+
+    {"MaxRequestsPerSecond", "max-requests-per-second", 0, CLOPT_TYPE_NUMBER, MATCH_NUMBER, 100, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Maximum number of HTTP requests per second allowed from a single IP\nbefore an HTTP flood alert is triggered.", "100"},
+
+    {"MaxFailedLogins", "max-failed-logins", 0, CLOPT_TYPE_NUMBER, MATCH_NUMBER, 5, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Number of consecutive failed authentication attempts that triggers\na brute-force alert and temporary lockout.", "5"},
+
+    {"LockoutDuration", "lockout-duration", 0, CLOPT_TYPE_NUMBER, MATCH_NUMBER, 300, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Duration in seconds for which a source IP is blocked after\nexceeding the brute-force or DDoS threshold.", "300"},
+
+    {"EnableIPReputation", "enable-ip-reputation", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Enable IP reputation checking. Source IPs are scored against known\nmalicious ranges and threat-intelligence feeds. IPs scoring >= 85\nare blocked; scores 50-84 generate a warning.", "no"},
+
+    {"IPReputationDatabase", "ip-reputation-database", 0, CLOPT_TYPE_STRING, NULL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Path to the IP reputation database file.", "/etc/clamav/ip_reputation.db"},
+
+    {"GeoBlockingEnabled", "geo-blocking", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Enable geolocation-based connection blocking. Requires AllowedCountries\nor DenyCountries to be configured.", "no"},
+
+    {"AllowedCountries", "allowed-countries", 0, CLOPT_TYPE_STRING, NULL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Comma-separated list of ISO 3166-1 alpha-2 country codes that are\nallowed to connect. All other countries are blocked when this option\nis set and GeoBlockingEnabled is yes.\nExample: US,GB,CA,DE,FR,JP", ""},
+
+    {"DenyCountries", "deny-countries", 0, CLOPT_TYPE_STRING, NULL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Comma-separated list of ISO 3166-1 alpha-2 country codes that are\nexplicitly denied when GeoBlockingEnabled is yes.\nExample: KP,IR,SY", ""},
+
+    {"PhishingHomographDetection", "homograph-detection", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Enable detection of homograph and Unicode-spoofing attacks in URLs\nand domain names. Detects mixed-script domains, Punycode abuse,\nemoji domains, and RTL-override attacks.", "no"},
+
+    {"PhishingHomographLevel", "homograph-level", 0, CLOPT_TYPE_STRING, NULL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Sensitivity level for homograph detection.\n'normal' - warn on suspicious domains.\n'strict' - block mixed-script and Punycode domains.", "normal"},
+
+    {"DNSTunnelingDetection", "dns-tunneling-detection", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Detect DNS tunneling and covert-channel abuse (oversized queries,\nhigh-entropy subdomains, TXT record abuse).", "no"},
+
+    {"HTTPInspection", "http-inspection", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Enable HTTP header inspection for anomalies such as missing\nUser-Agent, path traversal sequences, and X-Forwarded-For loops.", "no"},
+
+    {"ValidateSSLCertificate", "validate-ssl", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Enable TLS cipher suite and protocol version validation. Alerts on\nweak ciphers (RC4, NULL, EXPORT, DES, 3DES, anonymous DH) and\ndeprecated protocol versions (SSLv2, SSLv3, TLS 1.0, TLS 1.1).", "no"},
+
+    {"DetectTLSDowngrade", "detect-tls-downgrade", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Alert when a TLS downgrade to an insecure protocol version is\ndetected (requires ValidateSSLCertificate to be enabled).", "no"},
+
+    {"DetectC2Communication", "detect-c2", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Enable detection of Command & Control (C2) communication patterns.\nAnalyses connection timing and payload size regularity to identify\nbeaconing behaviour characteristic of malware C2 channels.", "no"},
+
+    {"EnableMLModels", "enable-ml-models", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Enable machine-learning-based anomaly detection models for\nidentifying malicious domains, botnet C2, phishing URLs,\nransomware traffic patterns, and cryptomining pool connections.", "no"},
+
+    {"MLConfidenceThreshold", "ml-confidence", 0, CLOPT_TYPE_NUMBER, MATCH_NUMBER, 85, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "Minimum confidence threshold (0-100) for ML-model detections to\ngenerate an alert. The value is a percentage (85 = 85% = 0.85 internally).\nHigher values reduce false positives.", "85"},
+
     {"ScanPDF", "scan-pdf", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 1, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "This option enables scanning within PDF files.\nIf you turn off this option, the original files will still be scanned, but\nwithout decoding and additional processing.", "yes"},
 
     {"ScanSWF", "scan-swf", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 1, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "This option enables scanning within SWF files.\nIf you turn off this option, the original files will still be scanned, but\nwithout decoding and additional processing.", "yes"},
