@@ -28,12 +28,16 @@
 #include <string.h>
 #include <signal.h>
 #include <locale.h>
+#include <errno.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #ifndef _WIN32
 #include <sys/time.h>
+#include <sys/stat.h>
+#else
+#include <direct.h>
 #endif
 #include <time.h>
 #ifdef C_LINUX
@@ -55,6 +59,133 @@
 #include "manager.h"
 
 void help(void);
+
+static void write_json_report_history(time_t date_start, time_t date_end, int duration_s, int duration_us)
+{
+    char report_dir[1024];
+    char report_file[1100];
+    char date_str[16]; /* DD-MM-yyyy\0 */
+    char start_buf[26];
+    char end_buf[26];
+    struct tm tmp;
+    FILE *fp;
+    long pos;
+    int c;
+    double duration_sec;
+    char entry[2048];
+
+#ifdef _WIN32
+    if (0 != localtime_s(&tmp, &date_start)) {
+#else
+    if (!localtime_r(&date_start, &tmp)) {
+#endif
+        logg(LOGG_WARNING, "json-report-history: Failed to get local start time.\n");
+        return;
+    }
+    strftime(date_str, sizeof(date_str), "%d-%m-%Y", &tmp);
+    strftime(start_buf, sizeof(start_buf), "%Y:%m:%d %H:%M:%S", &tmp);
+
+#ifdef _WIN32
+    if (0 != localtime_s(&tmp, &date_end)) {
+#else
+    if (!localtime_r(&date_end, &tmp)) {
+#endif
+        logg(LOGG_WARNING, "json-report-history: Failed to get local end time.\n");
+        return;
+    }
+    strftime(end_buf, sizeof(end_buf), "%Y:%m:%d %H:%M:%S", &tmp);
+
+    duration_sec = (double)duration_s + duration_us / 1000000.0;
+
+    /* Build path: history/reports */
+    snprintf(report_dir, sizeof(report_dir), "history/reports");
+
+    /* Create history/ then history/reports/ if they don't exist */
+#ifndef _WIN32
+    if (mkdir("history", 0755) != 0 && errno != EEXIST) {
+        logg(LOGG_WARNING, "json-report-history: Failed to create directory 'history': %s\n", strerror(errno));
+        return;
+    }
+    if (mkdir(report_dir, 0755) != 0 && errno != EEXIST) {
+        logg(LOGG_WARNING, "json-report-history: Failed to create directory '%s': %s\n", report_dir, strerror(errno));
+        return;
+    }
+#else
+    if (_mkdir("history") != 0 && errno != EEXIST) {
+        logg(LOGG_WARNING, "json-report-history: Failed to create directory 'history': %s\n", strerror(errno));
+        return;
+    }
+    if (_mkdir(report_dir) != 0 && errno != EEXIST) {
+        logg(LOGG_WARNING, "json-report-history: Failed to create directory '%s': %s\n", report_dir, strerror(errno));
+        return;
+    }
+#endif
+
+    snprintf(report_file, sizeof(report_file), "%s/%s-reports.json", report_dir, date_str);
+
+    snprintf(entry, sizeof(entry),
+             "  {\n"
+             "    \"scan_date\": \"%s\",\n"
+             "    \"start_time\": \"%s\",\n"
+             "    \"end_time\": \"%s\",\n"
+             "    \"duration_seconds\": %.3f,\n"
+             "    \"engine_version\": \"%s\",\n"
+             "    \"known_viruses\": %u,\n"
+             "    \"scanned_directories\": %u,\n"
+             "    \"scanned_files\": %u,\n"
+             "    \"infected_files\": %u,\n"
+             "    \"errors\": %u,\n"
+             "    \"data_scanned_bytes\": %" PRIu64 ",\n"
+             "    \"data_read_bytes\": %" PRIu64 "\n"
+             "  }",
+             date_str, start_buf, end_buf,
+             duration_sec,
+             get_version(),
+             info.sigs,
+             info.dirs,
+             info.files,
+             info.ifiles,
+             info.errors,
+             info.bytes_scanned,
+             info.bytes_read);
+
+    /* Open existing file for read+write, or create a new one.
+     * Note: concurrent writes from multiple clamscan processes on the same day
+     * may corrupt the file. This is considered an acceptable limitation for a
+     * scan history feature typically used in non-concurrent scenarios. */
+    fp = fopen(report_file, "r+");
+    if (fp == NULL) {
+        fp = fopen(report_file, "w");
+        if (fp == NULL) {
+            logg(LOGG_WARNING, "json-report-history: Failed to open '%s' for writing: %s\n", report_file, strerror(errno));
+            return;
+        }
+        fprintf(fp, "[\n%s\n]\n", entry);
+    } else {
+        /* Seek backward from the end to find the closing ']' of the array */
+        fseek(fp, 0, SEEK_END);
+        pos = ftell(fp);
+        c   = 0;
+        while (pos > 0) {
+            pos--;
+            fseek(fp, pos, SEEK_SET);
+            c = fgetc(fp);
+            if (c == ']') {
+                fseek(fp, pos, SEEK_SET);
+                break;
+            }
+        }
+        if (c == ']') {
+            /* Append new entry before the closing ']' */
+            fprintf(fp, ",\n%s\n]\n", entry);
+        } else {
+            logg(LOGG_WARNING, "json-report-history: '%s' appears malformed; skipping append.\n", report_file);
+        }
+    }
+    fclose(fp);
+
+    logg(LOGG_INFO, "JSON history report saved: %s\n", report_file);
+}
 
 struct s_info info;
 short recursion = 0, bell = 0;
@@ -184,15 +315,16 @@ int main(int argc, char **argv)
 
     ret = scanmanager(opts);
 
+    date_end = time(NULL);
+    gettimeofday(&t2, NULL);
+    ds  = t2.tv_sec - t1.tv_sec;
+    dms = t2.tv_usec - t1.tv_usec;
+    ds -= (dms < 0) ? (1) : (0);
+    dms += (dms < 0) ? (1000000) : (0);
+
     if (!optget(opts, "no-summary")->enabled) {
         struct tm tmp;
 
-        date_end = time(NULL);
-        gettimeofday(&t2, NULL);
-        ds  = t2.tv_sec - t1.tv_sec;
-        dms = t2.tv_usec - t1.tv_usec;
-        ds -= (dms < 0) ? (1) : (0);
-        dms += (dms < 0) ? (1000000) : (0);
         logg(LOGG_INFO, "\n----------- SCAN SUMMARY -----------\n");
         logg(LOGG_INFO, "Known viruses: %u\n", info.sigs);
         logg(LOGG_INFO, "Engine version: %s\n", get_version());
@@ -239,6 +371,10 @@ int main(int argc, char **argv)
         logg(LOGG_INFO, "End Date:   %s\n", buffer);
     }
 
+    if (optget(opts, "json-report-history")->enabled) {
+        write_json_report_history(date_start, date_end, ds, dms);
+    }
+
     optfree(opts);
 
     return ret;
@@ -278,6 +414,8 @@ void help(void)
     mprintf(LOGG_INFO, "    --json-store-pdf-uris[=yes(*)/no]    Store pdf URIs in metadata.\n");
     mprintf(LOGG_INFO, "                                         URIs will be written to the metadata.json file in an array called 'URIs'.\n");
     mprintf(LOGG_INFO, "    --json-store-extra-hashes[=yes(*)/no] Store md5 and sha1 in addition to sha2-256 in metadata.\n");
+    mprintf(LOGG_INFO, "    --json-report-history[=yes/no(*)]    Save a JSON summary of each scan to history/reports/DD-MM-yyyy-reports.json.\n");
+    mprintf(LOGG_INFO, "                                         Multiple scans on the same day are appended to the same file.\n");
     mprintf(LOGG_INFO, "    --database=FILE/DIR   -d FILE/DIR    Load virus database from FILE or load all supported db files from DIR.\n");
     mprintf(LOGG_INFO, "    --official-db-only[=yes/no(*)]       Only load official signatures.\n");
     mprintf(LOGG_INFO, "    --fail-if-cvd-older-than=days        Return with a nonzero error code if virus database outdated.\n");

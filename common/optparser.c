@@ -389,6 +389,8 @@ const struct clam_option __clam_options[] = {
 
     {"JsonStoreExtraHashes", "json-store-extra-hashes", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMD | OPT_CLAMSCAN, "When GenerateMetadataJson enabled: calculate and store each type of supported file hash.", "yes"},
 
+    {NULL, "json-report-history", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_CLAMSCAN, "Save a JSON summary of each scan to history/reports/DD-MM-yyyy-reports.json.", ""},
+
     {"User", NULL, 0, CLOPT_TYPE_STRING, NULL, -1, NULL, 0, OPT_CLAMD | OPT_MILTER, "Run the daemon as a specified user (the process must be started by root).", "clamav"},
 
     {"FIPSCryptoHashLimits", "fips-limits", 0, CLOPT_TYPE_BOOL, MATCH_BOOL, 0, NULL, 0, OPT_FRESHCLAM | OPT_CLAMSCAN | OPT_CLAMD | OPT_SIGTOOL | OPT_CLAMONACC, "Apply FIPS-like limitations on which hash algorithms may be used for cryptographic purposes. This essentially disables the legacy CVD digital signature verfication method, and also disables support for MD5 and SHA1 false positive signatures ('.fp' and '.sfp' signatures using MD5 or SHA1).", "yes"},
