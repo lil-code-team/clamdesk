@@ -38,6 +38,12 @@
 extern void (*action)(const char *);
 
 /**
+ * @brief Human-readable name of the action that will be taken on infected files.
+ *        Set by actsetup(). Values: "none", "moved", "copied", "removed".
+ */
+extern const char *action_type_name;
+
+/**
  * @brief Select the appropriate callback function based on the configuration options.
  *
  * @param opts Application configuration options.

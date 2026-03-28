@@ -60,6 +60,8 @@
 
 void help(void);
 
+static void fwrite_json_string(FILE *fp, const char *s);
+
 static void write_json_report_history(time_t date_start, time_t date_end, int duration_s, int duration_us)
 {
     char report_dir[1024];
@@ -140,7 +142,8 @@ static void write_json_report_history(time_t date_start, time_t date_end, int du
             "\"infected_files\":%u,"
             "\"errors\":%u,"
             "\"data_scanned_bytes\":%" PRIu64 ","
-            "\"data_read_bytes\":%" PRIu64 "}\n",
+            "\"data_read_bytes\":%" PRIu64 ","
+            "\"threats\":[",
             date_str, start_buf, end_buf,
             duration_sec,
             get_version(),
@@ -152,14 +155,80 @@ static void write_json_report_history(time_t date_start, time_t date_end, int du
             info.bytes_scanned,
             info.bytes_read);
 
+    {
+        unsigned int i;
+        for (i = 0; i < infected_list_count; i++) {
+            if (i > 0) fputc(',', fp);
+            fputs("{\"file\":", fp);
+            fwrite_json_string(fp, infected_list[i].path);
+            fputs(",\"virus\":", fp);
+            fwrite_json_string(fp, infected_list[i].virus_name);
+            fprintf(fp, ",\"action\":\"%s\"}", action_type_name);
+        }
+    }
+
+    fputs("]}\n", fp);
+
     fclose(fp);
+    free_infected_list();
 
     logg(LOGG_INFO, "JSON history report saved: %s\n", report_file);
 }
 
 struct s_info info;
+struct s_infected_record *infected_list     = NULL;
+unsigned int infected_list_count            = 0;
+unsigned int infected_list_capacity         = 0;
 short recursion = 0, bell = 0;
 short printinfected = 0, printclean = 1;
+
+void record_infected_file(const char *path, const char *virus_name)
+{
+    if (infected_list_count >= infected_list_capacity) {
+        unsigned int new_cap = infected_list_capacity ? infected_list_capacity * 2 : 8;
+        struct s_infected_record *tmp = realloc(infected_list, new_cap * sizeof(*tmp));
+        if (!tmp) return;
+        infected_list          = tmp;
+        infected_list_capacity = new_cap;
+    }
+    infected_list[infected_list_count].path       = path ? strdup(path) : NULL;
+    infected_list[infected_list_count].virus_name = virus_name ? strdup(virus_name) : NULL;
+    infected_list_count++;
+}
+
+void free_infected_list(void)
+{
+    unsigned int i;
+    for (i = 0; i < infected_list_count; i++) {
+        free(infected_list[i].path);
+        free(infected_list[i].virus_name);
+    }
+    free(infected_list);
+    infected_list          = NULL;
+    infected_list_count    = 0;
+    infected_list_capacity = 0;
+}
+
+/* Write a JSON string value, escaping special characters. */
+static void fwrite_json_string(FILE *fp, const char *s)
+{
+    if (!s) {
+        fputs("null", fp);
+        return;
+    }
+    fputc('"', fp);
+    for (; *s; s++) {
+        unsigned char c = (unsigned char)*s;
+        if (c == '"')       { fputs("\\\"", fp); }
+        else if (c == '\\') { fputs("\\\\", fp); }
+        else if (c == '\n') { fputs("\\n",  fp); }
+        else if (c == '\r') { fputs("\\r",  fp); }
+        else if (c == '\t') { fputs("\\t",  fp); }
+        else if (c < 0x20)  { fprintf(fp, "\\u%04x", c); }
+        else                { fputc(c, fp); }
+    }
+    fputc('"', fp);
+}
 
 static void loggBytes(uint64_t bytes)
 {
