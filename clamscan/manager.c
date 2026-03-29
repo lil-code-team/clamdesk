@@ -485,6 +485,7 @@ static void scanfile(const char *filename, struct cl_engine *engine, const struc
             }
             info.files++;
             info.ifiles++;
+            record_infected_file(filename, alert_name);
 
             if (bell) {
                 fprintf(stderr, "\007");
@@ -763,6 +764,7 @@ static int scanstdin(const struct cl_engine *engine, const struct optstruct *opt
         case CL_VERDICT_STRONG_INDICATOR:
         case CL_VERDICT_POTENTIALLY_UNWANTED: {
             info.ifiles++;
+            record_infected_file("stdin", alert_name);
 
             if (bell) {
                 fprintf(stderr, "\007");

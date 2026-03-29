@@ -56,6 +56,7 @@
 #include "actions.h"
 
 void (*action)(const char *) = NULL;
+const char *action_type_name  = "none";
 unsigned int notmoved = 0, notremoved = 0;
 
 static char *actarget;
@@ -714,9 +715,12 @@ int actsetup(const struct optstruct *opts)
         }
 #endif
         if (!isdir()) return 1;
-        action  = move ? action_move : action_copy;
+        action           = move ? action_move : action_copy;
+        action_type_name = move ? "moved" : "copied";
         targlen = strlen(actarget);
-    } else if (optget(opts, "remove")->enabled)
-        action = action_remove;
+    } else if (optget(opts, "remove")->enabled) {
+        action           = action_remove;
+        action_type_name = "removed";
+    }
     return 0;
 }

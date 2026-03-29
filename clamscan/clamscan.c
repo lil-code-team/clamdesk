@@ -42,6 +42,7 @@
 
 // libclamav
 #include "clamav.h"
+#include "json_report.h"
 #include "others.h"
 #include "str.h"
 
@@ -56,9 +57,125 @@
 
 void help(void);
 
+static void write_json_report_history(time_t date_start, time_t date_end, int duration_s, int duration_us)
+{
+    char report_file[1105];
+    char start_buf[26];
+    char end_buf[26];
+    struct tm tmp;
+    FILE *fp;
+    double duration_sec;
+
+#ifdef _WIN32
+    if (0 != localtime_s(&tmp, &date_start)) {
+#else
+    if (!localtime_r(&date_start, &tmp)) {
+#endif
+        logg(LOGG_WARNING, "json-report-history: Failed to get local start time.\n");
+        return;
+    }
+    strftime(date_str, sizeof(date_str), "%d-%m-%Y", &tmp);
+    strftime(start_buf, sizeof(start_buf), "%Y:%m:%d %H:%M:%S", &tmp);
+
+#ifdef _WIN32
+    if (0 != localtime_s(&tmp, &date_end)) {
+#else
+    if (!localtime_r(&date_end, &tmp)) {
+#endif
+        logg(LOGG_WARNING, "json-report-history: Failed to get local end time.\n");
+        return;
+    }
+    strftime(end_buf, sizeof(end_buf), "%Y:%m:%d %H:%M:%S", &tmp);
+
+    duration_sec = (double)duration_s + duration_us / 1000000.0;
+
+    if (0 != cl_json_history_open_daily_file(date_start,
+                                             "reports",
+                                             report_file,
+                                             sizeof(report_file),
+                                             &fp)) {
+        return;
+    }
+
+    fprintf(fp,
+            "{\"start_time\":\"%s\","
+            "\"end_time\":\"%s\","
+            "\"duration_seconds\":%.3f,"
+            "\"engine_version\":\"%s\","
+            "\"known_viruses\":%u,"
+            "\"scanned_directories\":%u,"
+            "\"scanned_files\":%u,"
+            "\"infected_files\":%u,"
+            "\"errors\":%u,"
+            "\"data_scanned_bytes\":%" PRIu64 ","
+            "\"data_read_bytes\":%" PRIu64 ","
+            "\"threats\":[",
+            start_buf, end_buf,
+            duration_sec,
+            get_version(),
+            info.sigs,
+            info.dirs,
+            info.files,
+            info.ifiles,
+            info.errors,
+            info.bytes_scanned,
+            info.bytes_read);
+
+    {
+        unsigned int i;
+        for (i = 0; i < infected_list_count; i++) {
+            if (i > 0) fputc(',', fp);
+            fputs("{\"file\":", fp);
+            cl_json_fwrite_string(fp, infected_list[i].path);
+            fputs(",\"virus\":", fp);
+            cl_json_fwrite_string(fp, infected_list[i].virus_name);
+            fputs(",\"action\":", fp);
+            cl_json_fwrite_string(fp, action_type_name);
+            fputs("}", fp);
+        }
+    }
+
+    fputs("]}\n", fp);
+
+    fclose(fp);
+    free_infected_list();
+
+    logg(LOGG_INFO, "JSON history report saved: %s\n", report_file);
+}
+
 struct s_info info;
+struct s_infected_record *infected_list     = NULL;
+unsigned int infected_list_count            = 0;
+unsigned int infected_list_capacity         = 0;
 short recursion = 0, bell = 0;
 short printinfected = 0, printclean = 1;
+
+void record_infected_file(const char *path, const char *virus_name)
+{
+    if (infected_list_count >= infected_list_capacity) {
+        unsigned int new_cap = infected_list_capacity ? infected_list_capacity * 2 : 8;
+        struct s_infected_record *tmp = realloc(infected_list, new_cap * sizeof(*tmp));
+        if (!tmp) return;
+        infected_list          = tmp;
+        infected_list_capacity = new_cap;
+    }
+    infected_list[infected_list_count].path       = path ? strdup(path) : NULL;
+    infected_list[infected_list_count].virus_name = virus_name ? strdup(virus_name) : NULL;
+    infected_list_count++;
+}
+
+void free_infected_list(void)
+{
+    unsigned int i;
+    for (i = 0; i < infected_list_count; i++) {
+        free(infected_list[i].path);
+        free(infected_list[i].virus_name);
+    }
+    free(infected_list);
+    infected_list          = NULL;
+    infected_list_count    = 0;
+    infected_list_capacity = 0;
+}
 
 static void loggBytes(uint64_t bytes)
 {
@@ -184,15 +301,16 @@ int main(int argc, char **argv)
 
     ret = scanmanager(opts);
 
+    date_end = time(NULL);
+    gettimeofday(&t2, NULL);
+    ds  = t2.tv_sec - t1.tv_sec;
+    dms = t2.tv_usec - t1.tv_usec;
+    ds -= (dms < 0) ? (1) : (0);
+    dms += (dms < 0) ? (1000000) : (0);
+
     if (!optget(opts, "no-summary")->enabled) {
         struct tm tmp;
 
-        date_end = time(NULL);
-        gettimeofday(&t2, NULL);
-        ds  = t2.tv_sec - t1.tv_sec;
-        dms = t2.tv_usec - t1.tv_usec;
-        ds -= (dms < 0) ? (1) : (0);
-        dms += (dms < 0) ? (1000000) : (0);
         logg(LOGG_INFO, "\n----------- SCAN SUMMARY -----------\n");
         logg(LOGG_INFO, "Known viruses: %u\n", info.sigs);
         logg(LOGG_INFO, "Engine version: %s\n", get_version());
@@ -239,6 +357,10 @@ int main(int argc, char **argv)
         logg(LOGG_INFO, "End Date:   %s\n", buffer);
     }
 
+    if (optget(opts, "json-report-history")->enabled) {
+        write_json_report_history(date_start, date_end, ds, dms);
+    }
+
     optfree(opts);
 
     return ret;
@@ -278,6 +400,8 @@ void help(void)
     mprintf(LOGG_INFO, "    --json-store-pdf-uris[=yes(*)/no]    Store pdf URIs in metadata.\n");
     mprintf(LOGG_INFO, "                                         URIs will be written to the metadata.json file in an array called 'URIs'.\n");
     mprintf(LOGG_INFO, "    --json-store-extra-hashes[=yes(*)/no] Store md5 and sha1 in addition to sha2-256 in metadata.\n");
+    mprintf(LOGG_INFO, "    --json-report-history[=yes/no(*)]    Save a JSON Lines summary of each scan to history/reports/DD-MM-yyyy-reports.jsonl.\n");
+    mprintf(LOGG_INFO, "                                         Multiple scans on the same day are appended to the same file.\n");
     mprintf(LOGG_INFO, "    --database=FILE/DIR   -d FILE/DIR    Load virus database from FILE or load all supported db files from DIR.\n");
     mprintf(LOGG_INFO, "    --official-db-only[=yes/no(*)]       Only load official signatures.\n");
     mprintf(LOGG_INFO, "    --fail-if-cvd-older-than=days        Return with a nonzero error code if virus database outdated.\n");

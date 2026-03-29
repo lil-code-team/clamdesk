@@ -900,3 +900,134 @@ Example
 #
 # Default: 10000
 # BytecodeTimeout 1000
+
+
+##
+## Network Firewall & Threat Protection
+##
+
+# Enable the advanced network firewall and threat protection module.
+# When enabled, ClamAV will perform network-level analysis including port scan
+# detection, DDoS/brute-force protection, IP reputation checks, geolocation
+# blocking, URL homograph detection, protocol anomaly analysis, and C2
+# communication detection.
+# Default: no
+#NetworkFirewall yes
+
+# Allow port scanning activity. When set to 'no', ClamAV will detect and alert
+# on rapid multi-port connection patterns (Nmap, Masscan, Zmap, Shodan, etc.).
+# Default: yes
+#AllowPortScanning no
+
+# Number of distinct destination ports that trigger a port-scan alert within
+# the observation window defined by PortScanTimeout.
+# Default: 10
+#PortScanThreshold 10
+
+# Observation window in seconds for port-scan detection.
+# Default: 300
+#PortScanTimeout 300
+
+# Automatically block source IPs detected as performing a port scan.
+# Default: no
+#BlockScannedPorts yes
+
+# Maximum simultaneous connections from a single IP before a DDoS alert fires.
+# Default: 50
+#MaxConnectionsPerIP 50
+
+# Maximum HTTP requests per second from a single IP before an HTTP flood
+# alert is triggered.
+# Default: 100
+#MaxRequestsPerSecond 100
+
+# Number of consecutive failed authentication attempts from the same IP that
+# triggers a brute-force alert and temporary lockout.
+# Default: 5
+#MaxFailedLogins 5
+
+# Duration in seconds for which a source IP is blocked after exceeding the
+# brute-force or DDoS threshold.
+# Default: 300
+#LockoutDuration 300
+
+# Enable IP reputation checking.  Source IPs are scored against known malicious
+# ranges and threat-intelligence feeds:
+#   Score >= 85  -> BLOCK (Malicious)
+#   Score 50-84  -> WARN  (Suspicious)
+#   Score 20-49  -> MONITOR
+#   Score < 20   -> ALLOW
+# Default: no
+#EnableIPReputation yes
+
+# Path to the IP reputation database file.
+# Default: /etc/clamav/ip_reputation.db
+#IPReputationDatabase /etc/clamav/ip_reputation.db
+
+# Enable geolocation-based connection blocking.
+# Requires AllowedCountries or DenyCountries to be configured.
+# Default: no
+#GeoBlockingEnabled yes
+
+# Comma-separated list of ISO 3166-1 alpha-2 country codes that are allowed to
+# connect. All other countries are blocked when this option is set and
+# GeoBlockingEnabled is yes.
+# Example: US,GB,CA,DE,FR,JP,SG
+#AllowedCountries US,GB,CA,DE,FR
+
+# Comma-separated list of ISO 3166-1 alpha-2 country codes that are explicitly
+# denied. Takes effect when GeoBlockingEnabled is yes.
+# Example: KP,IR,SY
+#DenyCountries KP,IR
+
+# Enable detection of homograph and Unicode-spoofing attacks in URLs and domain
+# names. Detects mixed-script domains, Punycode abuse, emoji domains, and
+# RTL-override attacks.
+# Default: no
+#PhishingHomographDetection yes
+
+# Sensitivity level for homograph detection.
+#   normal - warn on suspicious domains (default)
+#   strict - block mixed-script and Punycode domains
+# Default: normal
+#PhishingHomographLevel strict
+
+# Detect DNS tunneling and covert-channel abuse (oversized queries, high-entropy
+# subdomains, TXT record abuse).
+# Default: no
+#DNSTunnelingDetection yes
+
+# Enable HTTP header inspection for anomalies such as missing User-Agent,
+# path traversal sequences, and X-Forwarded-For loops.
+# Default: no
+#HTTPInspection yes
+
+# Enable TLS cipher suite and protocol version validation. Alerts on weak
+# ciphers (RC4, NULL, EXPORT, DES, 3DES, anonymous DH) and deprecated
+# protocol versions (SSLv2, SSLv3, TLS 1.0, TLS 1.1).
+# Default: no
+#ValidateSSLCertificate yes
+
+# Alert when a TLS downgrade to an insecure protocol version is detected.
+# Requires ValidateSSLCertificate to be enabled.
+# Default: no
+#DetectTLSDowngrade yes
+
+# Enable detection of Command & Control (C2) communication patterns. Analyses
+# connection timing and payload size regularity to identify beaconing behaviour
+# characteristic of malware C2 channels, ransomware callbacks, and botnet
+# coordination traffic.
+# Default: no
+#DetectC2Communication yes
+
+# Enable machine-learning-based anomaly detection models for identifying
+# malicious domains, botnet C2, phishing URLs, ransomware traffic patterns,
+# and cryptomining pool connections.
+# Default: no
+#EnableMLModels yes
+
+# Minimum confidence threshold (0-100) for ML-model detections to generate an
+# alert. The integer value is treated as a percentage: 85 means 85% confidence
+# (0.85 internally). Higher values reduce false positives.
+# Default: 85
+#MLConfidenceThreshold 85
