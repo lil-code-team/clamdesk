@@ -74,7 +74,6 @@ static void write_json_report_history(time_t date_start, time_t date_end, int du
         logg(LOGG_WARNING, "json-report-history: Failed to get local start time.\n");
         return;
     }
-    strftime(date_str, sizeof(date_str), "%d-%m-%Y", &tmp);
     strftime(start_buf, sizeof(start_buf), "%Y:%m:%d %H:%M:%S", &tmp);
 
 #ifdef _WIN32

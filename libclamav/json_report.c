@@ -76,7 +76,7 @@ int cl_json_history_open_daily_file(time_t event_time,
 #else
     if (!localtime_r(&event_time, &tmp)) {
 #endif
-        logg(LOGG_WARNING, "json-report-history: Failed to get local event time.\n");
+        cli_warnmsg("json-report-history: Failed to get local event time.\n");
         return -1;
     }
 
@@ -85,20 +85,20 @@ int cl_json_history_open_daily_file(time_t event_time,
 
 #ifndef _WIN32
     if (mkdir("history", 0755) != 0 && errno != EEXIST) {
-        logg(LOGG_WARNING, "json-report-history: Failed to create directory 'history': %s\n", strerror(errno));
+        cli_warnmsg("json-report-history: Failed to create directory 'history': %s\n", strerror(errno));
         return -1;
     }
     if (mkdir(report_dir, 0755) != 0 && errno != EEXIST) {
-        logg(LOGG_WARNING, "json-report-history: Failed to create directory '%s': %s\n", report_dir, strerror(errno));
+        cli_warnmsg("json-report-history: Failed to create directory '%s': %s\n", report_dir, strerror(errno));
         return -1;
     }
 #else
     if (_mkdir("history") != 0 && errno != EEXIST) {
-        logg(LOGG_WARNING, "json-report-history: Failed to create directory 'history': %s\n", strerror(errno));
+        cli_warnmsg("json-report-history: Failed to create directory 'history': %s\n", strerror(errno));
         return -1;
     }
     if (_mkdir(report_dir) != 0 && errno != EEXIST) {
-        logg(LOGG_WARNING, "json-report-history: Failed to create directory '%s': %s\n", report_dir, strerror(errno));
+        cli_warnmsg("json-report-history: Failed to create directory '%s': %s\n", report_dir, strerror(errno));
         return -1;
     }
 #endif
@@ -107,7 +107,7 @@ int cl_json_history_open_daily_file(time_t event_time,
 
     *fp = fopen(report_file, "a");
     if (*fp == NULL) {
-        logg(LOGG_WARNING, "json-report-history: Failed to open '%s' for appending: %s\n", report_file, strerror(errno));
+        cli_warnmsg("json-report-history: Failed to open '%s' for appending: %s\n", report_file, strerror(errno));
         return -1;
     }
 
