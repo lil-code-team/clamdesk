@@ -208,6 +208,7 @@ set(LIBCLAMAV_SOURCES
     fpu.c               fpu.h
     hashtab.c           hashtab.h
     iowrap.c            iowrap.h
+    json_report.c       json_report.h
     json_api.c          json_api.h
     jsparse/textbuf.h
     others_common.c     others.h
@@ -358,6 +359,8 @@ set(LIBCLAMAV_SOURCES
     phish_domaincheck_db.c          phish_domaincheck_db.h
     phish_allow_list.c              phish_allow_list.h
     phishcheck.c                    phishcheck.h
+    # network firewall & threat protection
+    network_firewall.c              network_firewall.h
     regex_list.c                    regex_list.h
     regex_suffix.c                  regex_suffix.h
     # sis

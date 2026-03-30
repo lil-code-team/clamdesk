@@ -32,7 +32,26 @@ struct s_info {
     uint64_t bytes_read;    /* number of *read* bytes */
 };
 
+struct s_infected_record {
+    char *path;
+    char *virus_name;
+};
+
 extern struct s_info info;
+extern struct s_infected_record *infected_list;
+extern unsigned int infected_list_count;
+extern unsigned int infected_list_capacity;
+
+/**
+ * @brief Record an infected file path and virus name for later inclusion in the JSON report.
+ */
+void record_infected_file(const char *path, const char *virus_name);
+
+/**
+ * @brief Free all entries in the infected file list and reset it.
+ */
+void free_infected_list(void);
+
 extern short recursion, bell;
 extern short printinfected, printclean;
 
